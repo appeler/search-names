@@ -32,7 +32,7 @@ jobs:
         echo "UV_CACHE_DIR=$(uv cache dir)" >> $GITHUB_ENV
 
     - name: Cache dependencies
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ${{ env.UV_CACHE_DIR }}
         key: ${{ runner.os }}-${{ matrix.python-version }}-uv-${{ hashFiles('pyproject.toml') }}
