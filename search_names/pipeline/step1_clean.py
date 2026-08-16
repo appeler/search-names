@@ -60,6 +60,11 @@ def clean_names(infile, outfile=DEFAULT_OUTPUT, col="Name", all=False):
     logger.info("Processing and exporting, please wait...")
 
     ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+    # `of` is used later behind `if outfile:`, which is the same condition that
+    # binds it -- true today, and unprovable, so bind it unconditionally rather
+    # than rely on two guards staying in step.
+    of = None
+    writer = None
     if outfile:
         try:
             of = open(outfile, "w")
@@ -168,6 +173,9 @@ def clean_names(infile, outfile=DEFAULT_OUTPUT, col="Name", all=False):
                     }
                     t = dict(r, **s)
                     if outfile:
+                        # Bound under this same condition further up; asserted
+                        # so the two guards cannot drift apart silently.
+                        assert writer is not None
                         writer.writerow(t)
         if outfile:
             of.close()

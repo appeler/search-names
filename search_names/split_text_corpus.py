@@ -47,6 +47,8 @@ def split_text_corpus(infile=None, outfile=None, size=1000):
         chunk_id = 0
         count = 0
         uid = 0
+        out = None
+        writer = None
         for r in reader:
             if count == 0:
                 filename = splitext(basename(infile))[0]
@@ -58,6 +60,11 @@ def split_text_corpus(infile=None, outfile=None, size=1000):
                 out = open(chunk_name, "w")
                 writer = DictWriter(out, fieldnames=header)
                 writer.writeheader()
+            # count == 0 on the first pass and after every chunk rotation, so
+            # both are bound here. Asserted rather than restructured: the
+            # rotation logic below depends on the same counter, and no test
+            # covers this file.
+            assert out is not None and writer is not None
             if add_uid:
                 r["uniqid"] = uid
             writer.writerow(r)

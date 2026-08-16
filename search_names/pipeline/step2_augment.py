@@ -119,9 +119,12 @@ def augment_names(
     prefixes = load_prefixes(prefix_file, prefixarg)
     nick_names = load_nick_names(nickname_file)
 
+    # Bound before the try, not inside it: the finally below closes them, so an
+    # exception raised before these assignments made the cleanup handler itself
+    # fail with NameError -- masking whatever actually went wrong.
+    f = None
+    o = None
     try:
-        f = None
-        o = None
         f = open(infile)
         reader = csv.DictReader(f)
         o = open(outfile, "w")
@@ -146,8 +149,10 @@ def augment_names(
             r["nick_names"] = nick
             writer.writerow(r)
     except Exception as e:
-        raise
+        # The log call used to sit *after* the bare `raise`, so it never ran and
+        # this path re-raised silently.
         logger.error(f"Error: {e}")
+        raise
     finally:
         if o:
             o.close()
