@@ -147,3 +147,17 @@ dev = [
     "deptry>=0.24.0",
     "pre-commit>=4.5.0",
 ]
+
+[tool.pyright]
+# The shipped package. Unscoped, pyright reported 196 errors and 90 of them
+# were in tests/ and examples/ -- fixtures and demo scripts, where the looseness
+# is deliberate -- which buried the ones in code users run.
+include = ["search_names"]
+typeCheckingMode = "standard"
+
+[tool.codespell]
+# The corpora are names: a "misspelling" in a list of surnames is usually a
+# real surname, and correcting one would corrupt the data. codespell reported
+# 25,026 findings across this repo; seven were real, all in
+# pipeline/step4_search.py, and all are fixed rather than skipped.
+skip = "*.csv,*.parquet,*.joblib,./examples,./nltk_data,./docs,uv.lock"
