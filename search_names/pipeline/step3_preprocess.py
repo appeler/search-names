@@ -87,10 +87,13 @@ def preprocess_names(
 ):
     """Preprocessing names file"""
     logger.info(f"Preprocessing to '{outfile}', please wait...")
+    # Both bound before the try, because the finally below closes them: an
+    # exception before the assignment made the cleanup raise NameError and hide
+    # the real error.
     o = None
+    f = None
 
     try:
-        f = None
         f = open(infile)
         reader = csv.DictReader(f)
         out = []

@@ -216,6 +216,9 @@ def init_worker():
 
 
 def worker(args):
+    # Bound before the try: `return count` runs after the except handler, so a
+    # failure anywhere above turned a caught error into a NameError.
+    count = 0
     try:
         args, pid = args
         logging.info(f"[{pid}] worker start")
@@ -223,7 +226,6 @@ def worker(args):
         _open = gzip.open if args.input.endswith(".gz") else open
         with _open(args.input, "rt", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            count = 0
             for i, r in enumerate(reader):
                 if (i % args.processes) != pid:
                     continue

@@ -74,6 +74,10 @@ class OptimizedSearchProcessor:
         with _open(input_file, "rt", encoding="utf-8") as f:
             reader = csv.DictReader(f)
 
+            # Read after the loop for the final chunk; an empty file never enters it.
+
+            line_num = 0
+
             for line_num, row in enumerate(reader):
                 if text_column not in row or not row[text_column].strip():
                     continue

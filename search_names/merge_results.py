@@ -28,12 +28,16 @@ def setup_logger():
 def merge_results(infile=None, outfile=DEFAULT_OUTPUT_FILE):
     out = open(outfile, "w")
     count = 0
+    writer = None
     try:
-        for n, i in enumerate(infile):
+        for i in infile:
             logging.info(f"Merging...: '{i}'")
             with open(i) as f:
                 reader = DictReader(f)
-                if n == 0:
+                # `writer is None` rather than `n == 0`: same behaviour, and
+                # it does not depend on enumerate starting at zero or on the
+                # first file being readable.
+                if writer is None:
                     writer = DictWriter(out, fieldnames=reader.fieldnames)
                     writer.writeheader()
                 for r in reader:
