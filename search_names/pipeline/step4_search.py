@@ -164,7 +164,7 @@ def parse_command_line(argv):
         "--search",
         dest="name_search",
         default=DEFAULT_COL_SEARCH,
-        help=f"Colunm of name want to search for\
+        help=f"Column of name want to search for\
                         (default: {DEFAULT_COL_SEARCH!s})",
     )
 
@@ -250,8 +250,8 @@ def worker(args):
                 c.extend(sel_result)
                 if "count" in args.search_cols:
                     c.append(n)
-                elaspe = time.time() - start
-                logging.debug(f"[{pid}] found: {n} in {elaspe:0.3f}s")
+                elapsed = time.time() - start
+                logging.debug(f"[{pid}] found: {n} in {elapsed:0.3f}s")
                 args.result_queue.put(c)
                 count += 1
         logging.info(f"[{pid}] worker stop")
@@ -390,9 +390,9 @@ def search_names(
                 r = args.result_queue.get(timeout=0.1)
                 csvwriter.writerow(r)
                 progress += 1
-                elaspe = time.time() - all_start
+                elapsed = time.time() - all_start
                 logging.info(
-                    f"Progress: {progress:d}, Average rate = {progress * 60 / elaspe:.0f} rows/min"
+                    f"Progress: {progress:d}, Average rate = {progress * 60 / elapsed:.0f} rows/min"
                 )
             except KeyboardInterrupt:
                 break
@@ -403,8 +403,8 @@ def search_names(
                     break
                 except TimeoutError:
                     pass
-        elaspe = time.time() - all_start
-        logging.info(f"Total: {count:d}, Average rate = {count * 60 / elaspe:.0f} rows/min")
+        elapsed = time.time() - all_start
+        logging.info(f"Total: {count:d}, Average rate = {count * 60 / elapsed:.0f} rows/min")
     finally:
         # Ensure proper cleanup of multiprocessing resources
         if pool is not None:
