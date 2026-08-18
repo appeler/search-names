@@ -1,14 +1,13 @@
-#!/usr/bin/env python
-
 """
 Tests for nlp_engine module
 """
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from search_names.models import EntityMention
 from search_names.nlp_engine import (
+    DEFAULT_SIMILARITY_REVISION,
     EntityLinker,
     NLPEngine,
     NLPEngineError,
@@ -90,6 +89,14 @@ class TestSpacyNER(unittest.TestCase):
 
         self.assertIn("spaCy model not loaded", str(context.exception))
 
+    def test_extract_entities_runtime_error_is_not_a_false_empty_result(self):
+        """Surface inference failures instead of reporting no entities."""
+        ner = SpacyNER()
+        ner.nlp = MagicMock(side_effect=RuntimeError("inference failed"))
+
+        with self.assertRaises(NLPEngineError):
+            ner.extract_entities("John Doe")
+
 
 class TestSemanticSimilarity(unittest.TestCase):
     """Test SemanticSimilarity class."""
@@ -100,6 +107,7 @@ class TestSemanticSimilarity(unittest.TestCase):
         similarity = SemanticSimilarity("sentence-transformers/all-MiniLM-L6-v2")
 
         self.assertIsNotNone(similarity.model)
+        self.assertEqual(similarity.revision, DEFAULT_SIMILARITY_REVISION)
 
         # Test actual similarity computation
         score1 = similarity.compute_similarity("dog", "puppy")
@@ -146,7 +154,9 @@ class TestSemanticSimilarity(unittest.TestCase):
         """Test initialization with invalid model name."""
         with self.assertRaises(NLPEngineError) as context:
             SemanticSimilarity("non-existent-model", local_files_only=True)
-        self.assertIn("Could not load sentence transformer model", str(context.exception))
+        self.assertIn(
+            "Could not load sentence transformer model", str(context.exception)
+        )
 
 
 class TestEntityLinker(unittest.TestCase):
@@ -193,9 +203,10 @@ class TestEntityLinker(unittest.TestCase):
 
         result = linker.link_entity(mention)
 
-        self.assertEqual(result.linked_entity_id, "John Smith")
+        self.assertEqual(result.linked_entity_id, "person_1")
         self.assertEqual(result.linked_entity_name, "John Smith")
-        self.assertEqual(result.confidence, 1.0)
+        self.assertEqual(result.match_method, "exact")
+        self.assertIsNone(result.score)
 
     def test_link_entity_alias_match(self):
         """Test entity linking with alias match."""
@@ -205,8 +216,9 @@ class TestEntityLinker(unittest.TestCase):
 
         result = linker.link_entity(mention)
 
-        self.assertEqual(result.linked_entity_id, "John Smith")
-        self.assertEqual(result.confidence, 1.0)
+        self.assertEqual(result.linked_entity_id, "person_1")
+        self.assertEqual(result.match_method, "exact")
+        self.assertIsNone(result.score)
 
     def test_link_entity_normalized_match(self):
         """Test entity linking with normalized match."""
@@ -216,8 +228,9 @@ class TestEntityLinker(unittest.TestCase):
 
         result = linker.link_entity(mention)
 
-        self.assertEqual(result.linked_entity_id, "John Smith")
-        self.assertEqual(result.confidence, 0.9)
+        self.assertEqual(result.linked_entity_id, "person_1")
+        self.assertEqual(result.match_method, "normalized")
+        self.assertIsNone(result.score)
 
     def test_link_entity_semantic_match(self):
         """Test entity linking with semantic similarity."""
@@ -234,8 +247,9 @@ class TestEntityLinker(unittest.TestCase):
         result = linker.link_entity(mention, similarity_threshold=0.7)
 
         # Should find John Smith as closest match
-        self.assertEqual(result.linked_entity_id, "John Smith")
-        self.assertGreater(result.confidence, 0.7)
+        self.assertEqual(result.linked_entity_id, "person_1")
+        self.assertEqual(result.match_method, "semantic")
+        self.assertGreater(result.score, 0.7)
 
     def test_link_entity_no_match(self):
         """Test entity linking when no match found."""
@@ -247,7 +261,26 @@ class TestEntityLinker(unittest.TestCase):
 
         self.assertIsNone(result.linked_entity_id)
         self.assertIsNone(result.linked_entity_name)
-        self.assertEqual(result.confidence, 0.0)
+        self.assertIsNone(result.match_method)
+        self.assertIsNone(result.score)
+
+    def test_entity_linker_rejects_ambiguous_aliases(self):
+        """Reject aliases that normalize to different canonical entities."""
+        knowledge_base = {
+            "John Smith": {"id": "1", "aliases": ["J. Smith"]},
+            "Jane Smith": {"id": "2", "aliases": ["J Smith"]},
+        }
+
+        with self.assertRaisesRegex(ValueError, "ambiguous knowledge-base name"):
+            EntityLinker(knowledge_base)
+
+    def test_link_entity_validates_similarity_threshold(self):
+        """Validate the threshold even when semantic linking is disabled."""
+        linker = EntityLinker(self.knowledge_base)
+        mention = EntityMention(text="Unknown", label="PERSON", start=0, end=7)
+
+        with self.assertRaisesRegex(ValueError, "between -1 and 1"):
+            linker.link_entity(mention, similarity_threshold=2)
 
 
 class TestNLPEngine(unittest.TestCase):
@@ -269,33 +302,37 @@ class TestNLPEngine(unittest.TestCase):
         self.assertIsNotNone(engine.semantic_similarity)
 
         # Test processing
-        results = engine.process_text("John Doe is meeting Jane Smith.", extract_entities=True)
+        results = engine.process_text(
+            "John Doe is meeting Jane Smith.", extract_entities=True
+        )
 
         self.assertIn("entities", results)
         self.assertIn("person_entities", results)
         self.assertGreater(len(results["entities"]), 0)
 
     def test_nlp_engine_init_with_errors(self):
-        """Test NLP engine handles component initialization errors gracefully."""
-        # Try to initialize with invalid model names
-        engine = NLPEngine(
-            spacy_model="invalid_model",
-            similarity_model="invalid_model",
-            enable_ner=True,
-            enable_similarity=True,
-        )
+        """Surface failure when a requested component cannot initialize."""
+        with self.assertRaises(NLPEngineError):
+            NLPEngine(spacy_model="invalid_model", enable_ner=True)
 
-        # Should not crash, just have None components
-        self.assertIsNone(engine.spacy_ner)
-        self.assertIsNone(engine.semantic_similarity)
+    def test_nlp_engine_linking_requires_knowledge_base(self):
+        """Reject linking that has no knowledge base."""
+        with self.assertRaises(ValueError):
+            NLPEngine(enable_ner=False, enable_linking=True)
 
     def test_process_text_no_ner(self):
-        """Test text processing without NER component."""
+        """Surface requests for an NLP component that was not enabled."""
         engine = NLPEngine(enable_ner=False)
-        results = engine.process_text("John Doe is here", extract_entities=True)
 
-        self.assertEqual(results["entities"], [])
-        self.assertEqual(results["person_entities"], [])
+        with self.assertRaisesRegex(NLPEngineError, "NER was not enabled"):
+            engine.process_text("John Doe is here", extract_entities=True)
+
+    def test_process_text_rejects_unavailable_linking(self):
+        """Surface linking requests when the linker was not enabled."""
+        engine = NLPEngine(enable_ner=True, enable_linking=False)
+
+        with self.assertRaisesRegex(NLPEngineError, "linking was not enabled"):
+            engine.process_text("John Doe is here", link_entities=True)
 
     def test_enhance_name_search_real(self):
         """Test enhanced name search with real NER."""
@@ -314,9 +351,18 @@ class TestNLPEngine(unittest.TestCase):
         self.assertEqual(john_result["match_count"], 1)
 
         # Check Bob Wilson has no matches
-        bob_result = next((r for r in results if r["search_name"] == "Bob Wilson"), None)
+        bob_result = next(
+            (r for r in results if r["search_name"] == "Bob Wilson"), None
+        )
         self.assertIsNotNone(bob_result)
         self.assertEqual(bob_result["match_count"], 0)
+
+    def test_enhance_name_search_rejects_blank_names(self):
+        """Avoid the non-advancing empty-string search case."""
+        engine = NLPEngine(enable_ner=False)
+
+        with self.assertRaisesRegex(ValueError, "cannot be blank"):
+            engine.enhance_name_search([""], "text")
 
 
 class TestIntegration(unittest.TestCase):
@@ -381,7 +427,9 @@ class TestMockedErrorCases(unittest.TestCase):
         with self.assertRaises(NLPEngineError) as context:
             SemanticSimilarity("invalid_model")
 
-        self.assertIn("Could not load sentence transformer model", str(context.exception))
+        self.assertIn(
+            "Could not load sentence transformer model", str(context.exception)
+        )
 
 
 if __name__ == "__main__":

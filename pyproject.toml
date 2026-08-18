@@ -1,26 +1,22 @@
 [build-system]
-requires = ["uv_build>=0.9.13,<0.12.0"]
+requires = ["uv_build>=0.12.5,<0.13"]
 build-backend = "uv_build"
 
-[tool.uv.build-backend]
-module-name = "search_names"
-module-root = ""
-
 [project]
-name = "search_names"
-version = "0.5.0"
-description = "Advanced name search and entity recognition in large text corpora with NLP and AI capabilities"
+name = "search-names"
+version = "0.6.0"
+description = "Prepare personal names and search CSV text corpora"
 authors = [
     {name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com"},
     {name = "Gaurav Sood", email = "gsood07@gmail.com"}
 ]
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -33,66 +29,23 @@ dependencies = [
     "nameparser>=1.1.0",
     "python-Levenshtein>=0.27.0",
     "regex>=2024.0.0",
-    "nltk>=3.9.0",
     "typer>=0.20.0",
     "pydantic>=2.12.0",
-    "pyyaml>=6.0",
     "rich>=14.0.0",
-    "parsernaam>=0.1.0",
-    # Core NLP dependencies
+    "parsernaam>=0.3.0",
+    "numpy>=2.0.0",
     "pandas>=2.3.0",
     "spacy>=3.8.0",
     "sentence-transformers>=5.0.0",
 ]
 
-[project.optional-dependencies]
-dev = ["ruff>=0.14.0", "pre-commit>=4.0.0"]
-test = ["coverage>=7.12.0", "pytest>=9.0.0", "pytest-asyncio>=1.3.0", "pytest-timeout>=2.3.1"]
-docs = ["sphinx>=8.0.0", "furo>=2025.9.0"]
-enhanced = [
-    "transformers>=4.57.0",
-    "torch>=2.9.0",
-    "huggingface-hub>=0.36.0",
-]
-nlp = [
-    "scipy>=1.16.0",
-    "joblib>=1.5.0",
-    "numpy>=1.26.0",
-]
-formats = [
-    "pyarrow>=22.0.0",
-    "polars>=1.35.0",
-]
-search = [
-    "elasticsearch>=9.0.0",
-    "opensearch-py>=3.0.0",
-]
-web = [
-    "fastapi>=0.122.0",
-    "uvicorn[standard]>=0.38.0",
-]
-all = [
-    "transformers>=4.57.0",
-    "torch>=2.9.0",
-    "huggingface-hub>=0.36.0",
-    "scipy>=1.16.0",
-    "joblib>=1.5.0",
-    "numpy>=1.26.0",
-    "pyarrow>=22.0.0",
-    "polars>=1.35.0",
-    "elasticsearch>=9.0.0",
-    "opensearch-py>=3.0.0",
-    "fastapi>=0.122.0",
-    "uvicorn[standard]>=0.38.0",
-]
-
 [project.urls]
 Homepage = "https://github.com/appeler/search-names"
+Documentation = "https://appeler.github.io/search-names/"
 Repository = "https://github.com/appeler/search-names"
 Issues = "https://github.com/appeler/search-names/issues"
 
 [project.scripts]
-# Modern CLI - unified interface for the complete pipeline
 search-names = "search_names.cli:main_cli"
 
 
@@ -101,40 +54,34 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 timeout = 300
-addopts = "--timeout=300 --tb=short"
+addopts = "--timeout=300 --tb=short --cov=search_names --cov-report=term-missing"
 filterwarnings = [
-    # Suppress sklearn pickle version warnings from parsernaam
-    "ignore:.*Trying to unpickle estimator.*:sklearn.base.InconsistentVersionWarning",
-    # Other common warnings we want to suppress
     "ignore::pytest.PytestUnraisableExceptionWarning",
-    # Suppress pytest config warnings
     "ignore::pytest.PytestConfigWarning",
 ]
 
 [tool.ruff]
+line-length = 88
 target-version = "py311"
-line-length = 100
 
 [tool.ruff.lint]
+external = ["DOC"]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
+    "E", "W", "F", "I", "B", "C4", "UP", "N", "D", "S", "SIM", "T20", "PT", "RUF",
+    "PTH", "RET", "PIE", "FURB", "PERF", "DTZ", "LOG", "G", "TC", "FLY",
+    "RSE", "SLOT", "FA", "A", "EXE", "ICN", "PGH", "PLE", "ARG", "SLF",
 ]
-ignore = [
-    "E501", # line too long, handled by formatter
-    "B008", # do not perform function calls in argument defaults
-    "C901", # too complex
-]
+# D203/D213: the google convention the fleet standard picks. W191/D206/D300:
+# ruff's own docs list these as always incompatible with `ruff format`, which
+# the standard also runs.
+ignore = ["D203", "D213", "W191", "D206", "D300", "B008", "C901", "E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E402"]
-
-# Black and isort configurations removed - using ruff for all formatting
+"tests/**" = ["S101", "D", "ARG", "SLF", "PT009", "PT027"]
+"docs/**" = ["D"]
 
 [tool.deptry.per_rule_ignores]
 # python-Levenshtein package provides the Levenshtein module (imported as "from Levenshtein import distance")
@@ -142,18 +89,53 @@ DEP002 = ["python-Levenshtein"]
 # Allow importing Levenshtein module from python-Levenshtein package
 DEP003 = ["Levenshtein"]
 
+[tool.deptry]
+extend_exclude = ["docs"]
+
 [dependency-groups]
 dev = [
     "deptry>=0.24.0",
     "pre-commit>=4.5.0",
+    "ruff>=0.14",
+    "pyright>=1.1.390",
+    "pydoclint>=0.5",
+    { include-group = "test" },
+]
+test = [
+    "coverage>=7.12.0",
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.0.0",
+    "pytest-timeout>=2.3.1",
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
+docs = [
+    "sphinx>=8",
+    "furo",
+    "myst-parser",
+    "sphinx-copybutton",
+    "py-canon @ git+https://github.com/gojiplus/py-canon@v1",
 ]
 
 [tool.pyright]
-# The shipped package. Unscoped, pyright reported 196 errors and 90 of them
-# were in tests/ and examples/ -- fixtures and demo scripts, where the looseness
-# is deliberate -- which buried the ones in code users run.
-include = ["search_names"]
+include = ["src"]
 typeCheckingMode = "standard"
+
+[tool.coverage.run]
+branch = true
+source = ["search_names"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false
+allow-init-docstring = true
+exclude = '\.venv|tests|docs'
 
 [tool.codespell]
 # The corpora are names: a "misspelling" in a list of surnames is usually a

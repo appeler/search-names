@@ -2,6 +2,7 @@
 
 import multiprocessing
 import sys
+from contextlib import suppress
 
 import pytest
 
@@ -41,8 +42,5 @@ def pytest_configure(config):
     # Set multiprocessing start method to 'spawn' for consistency
     # This helps avoid issues with forking and module imports
     if sys.platform != "win32":
-        try:
+        with suppress(RuntimeError):
             multiprocessing.set_start_method("spawn", force=True)
-        except RuntimeError:
-            # Already set, that's fine
-            pass

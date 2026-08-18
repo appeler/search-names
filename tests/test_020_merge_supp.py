@@ -1,29 +1,40 @@
-#!/usr/bin/env python
+"""Tests for deterministic prefix and nickname augmentation."""
 
-"""
-Tests for secc_caste_ln.py
-"""
+import csv
+from pathlib import Path
 
-import os
-import unittest
-
-from search_names import merge_supp
+from search_names import augment_names
 
 
-class TestMergeSupp(unittest.TestCase):
-    def setUp(self):
-        self.input = "examples/merge_supp_data/sample_in.csv"
-        self.prefixed = "examples/merge_supp_data/prefixes.csv"
-        self.nick_name = "examples/merge_supp_data/nick_names.txt"
-        self.output = "augmented_clean_names.csv"
+def test_augment_names_loads_prefixes_and_nicknames(tmp_path: Path) -> None:
+    output = tmp_path / "augmented.csv"
 
-    def tearDown(self):
-        os.unlink(self.output)
+    count = augment_names(
+        "examples/merge_supp_data/sample_in.csv",
+        output_file=output,
+        prefix_file="examples/merge_supp_data/prefixes.csv",
+        nickname_file="examples/merge_supp_data/nick_names.txt",
+    )
 
-    def test_merge_supp(self):
-        merge_supp(self.input, prefix_file=self.prefixed, nickname_file=self.nick_name)
-        self.assertTrue(os.path.exists(self.output))
+    with output.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert count == len(rows)
+    assert any("president" in row["prefixes"].casefold() for row in rows)
+    robert = next(row for row in rows if row["FirstName"] == "ROBERT")
+    assert robert["nick_names"] == "bob;bobby;rob"
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_augment_names_replaces_colliding_output_columns(tmp_path: Path) -> None:
+    input_file = tmp_path / "input.csv"
+    output_file = tmp_path / "output.csv"
+    input_file.write_text(
+        "seat,FirstName,prefixes,nick_names\nA,William,stale,stale\n",
+        encoding="utf-8",
+    )
+
+    augment_names(input_file, output_file=output_file)
+
+    with output_file.open(encoding="utf-8", newline="") as stream:
+        row = next(csv.DictReader(stream))
+    assert row["prefixes"] == ""
+    assert row["nick_names"] == ""

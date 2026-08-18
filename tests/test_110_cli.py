@@ -1,312 +1,170 @@
-#!/usr/bin/env python
+"""End-to-end tests for the supported CLI commands."""
 
-"""
-Tests for CLI interface
-"""
-
-import tempfile
-import unittest
+import csv
 from pathlib import Path
-from unittest.mock import patch
 
-import pandas as pd
 from typer.testing import CliRunner
 
-
-class TestCLI(unittest.TestCase):
-    """Test CLI interface."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.runner = CliRunner()
-        self.temp_dir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        """Clean up test environment."""
-        import multiprocessing
-        import shutil
-
-        # Clean up any multiprocessing resources
-        if hasattr(multiprocessing, "active_children"):
-            for child in multiprocessing.active_children():
-                child.terminate()
-                child.join(timeout=0.5)
-
-        shutil.rmtree(self.temp_dir)
-
-    @patch("search_names.cli.app")
-    def test_cli_import(self, mock_app):
-        """Test that CLI can be imported."""
-        try:
-            from search_names.cli import app, main_cli
-
-            self.assertIsNotNone(app)
-            self.assertIsNotNone(main_cli)
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    def test_cli_help(self):
-        """Test CLI help command."""
-        try:
-            from search_names.cli import app
-
-            result = self.runner.invoke(app, ["--help"])
-            self.assertEqual(result.exit_code, 0)
-            # Accept either search-names or search_names in help output
-            self.assertTrue(
-                "search-names" in result.stdout.lower() or "search_names" in result.stdout.lower()
-            )
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    @patch("search_names.cli.clean_names")
-    def test_clean_command(self, mock_clean):
-        """Test clean command."""
-        try:
-            from search_names.cli import app
-
-            # Create test input file
-            input_path = Path(self.temp_dir) / "names.csv"
-            input_path.write_text("name\nJohn Doe\nJane Smith")
-
-            # Mock the clean function
-            mock_clean.return_value = pd.DataFrame(
-                {
-                    "original_name": ["John Doe", "Jane Smith"],
-                    "first_name": ["John", "Jane"],
-                    "last_name": ["Doe", "Smith"],
-                }
-            )
-
-            result = self.runner.invoke(
-                app,
-                [
-                    "clean",
-                    str(input_path),
-                    "--output",
-                    str(Path(self.temp_dir) / "cleaned.csv"),
-                ],
-            )
-
-            # Check that command succeeded
-            if result.exit_code != 0:
-                print(f"Error: {result.stdout}")
-
-            mock_clean.assert_called_once()
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    @patch("search_names.cli.search_names")
-    @patch("search_names.pipeline.step4_search.load_names_file")
-    def test_search_command(self, mock_load_names, mock_search):
-        """Test search command."""
-        try:
-            from search_names.cli import app
-
-            # Create test files
-            names_path = Path(self.temp_dir) / "names.csv"
-            names_path.write_text("name\nJohn Doe")
-
-            corpus_path = Path(self.temp_dir) / "corpus.csv"
-            corpus_path.write_text("text\nJohn Doe is here")
-
-            # Mock the search function and name loading
-            mock_load_names.return_value = [("1", "John Doe")]
-            mock_search.return_value = None
-
-            result = self.runner.invoke(
-                app,
-                [
-                    "search",
-                    str(names_path),
-                    str(corpus_path),
-                    "--output",
-                    str(Path(self.temp_dir) / "results.csv"),
-                ],
-            )
-
-            # Check that search was called
-            if result.exit_code == 0:
-                mock_search.assert_called_once()
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    def test_config_command(self):
-        """Test config command."""
-        try:
-            from search_names.cli import app
-
-            config_path = Path(self.temp_dir) / "config.yaml"
-
-            result = self.runner.invoke(app, ["config", "create", "--path", str(config_path)])
-
-            # Check config file was created
-            if result.exit_code == 0:
-                self.assertTrue(config_path.exists())
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    def test_analyze_command(self):
-        """Test analyze command with NLP."""
-        # Skip this test - analyze command not yet implemented
-        self.skipTest("analyze command not yet implemented")
-
-    def test_version_command(self):
-        """Test version command."""
-        try:
-            from search_names.cli import app
-
-            result = self.runner.invoke(app, ["--version"])
-
-            # Should show version info
-            if result.exit_code == 0:
-                self.assertIn("0.5", result.stdout)
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    @patch("pandas.read_csv")
-    @patch("search_names.cli.Path")
-    def test_pipeline_command(self, mock_path, mock_read_csv):
-        """Test pipeline command."""
-        try:
-            from search_names.cli import app
-
-            # Mock file operations
-            mock_path.return_value.exists.return_value = True
-            mock_read_csv.return_value = pd.DataFrame(
-                {"name": ["John Doe"], "text": ["John Doe is here"]}
-            )
-
-            result = self.runner.invoke(
-                app,
-                ["pipeline", "names.csv", "corpus.csv", "--output-dir", self.temp_dir],
-            )
-
-            # Pipeline should run through all steps
-            # Even if it fails, we're testing the CLI structure
-            self.assertIsNotNone(result)
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    def test_invalid_command(self):
-        """Test invalid command handling."""
-        try:
-            from search_names.cli import app
-
-            result = self.runner.invoke(app, ["invalid-command"])
-
-            # Should fail with non-zero exit code
-            self.assertNotEqual(result.exit_code, 0)
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    def test_missing_required_args(self):
-        """Test handling of missing required arguments."""
-        try:
-            from search_names.cli import app
-
-            # Clean command requires input file
-            result = self.runner.invoke(app, ["clean"])
-
-            # Should fail
-            self.assertNotEqual(result.exit_code, 0)
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-
-class TestCLIIntegration(unittest.TestCase):
-    """Integration tests for CLI."""
-
-    def setUp(self):
-        """Set up test environment."""
-        self.runner = CliRunner()
-        self.temp_dir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        """Clean up test environment."""
-        import multiprocessing
-        import shutil
-
-        # Clean up any multiprocessing resources
-        if hasattr(multiprocessing, "active_children"):
-            for child in multiprocessing.active_children():
-                child.terminate()
-                child.join(timeout=0.5)
-
-        shutil.rmtree(self.temp_dir)
-
-    def test_cli_workflow(self):
-        """Test a complete CLI workflow."""
-        try:
-            from search_names.cli import app
-
-            # Create test data
-            names_csv = Path(self.temp_dir) / "names.csv"
-            names_csv.write_text("name\nJohn Doe\nJane Smith")
-
-            corpus_csv = Path(self.temp_dir) / "corpus.csv"
-            corpus_csv.write_text("text\nJohn Doe was here\nJane Smith arrived")
-
-            # Step 1: Clean names
-            clean_output = Path(self.temp_dir) / "cleaned.csv"
-            result_clean = self.runner.invoke(
-                app, ["clean", str(names_csv), "--output", str(clean_output)]
-            )
-
-            # Step 2: Search (if clean succeeded)
-            if result_clean.exit_code == 0 and clean_output.exists():
-                search_output = Path(self.temp_dir) / "results.csv"
-                result_search = self.runner.invoke(
-                    app,
-                    [
-                        "search",
-                        str(clean_output),
-                        str(corpus_csv),
-                        "--output",
-                        str(search_output),
-                    ],
-                )
-
-                # Check search results
-                if result_search.exit_code == 0:
-                    self.assertTrue(search_output.exists())
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-    def test_cli_with_config(self):
-        """Test CLI with configuration file."""
-        try:
-            from search_names.cli import app
-
-            # Create config file
-            config_path = Path(self.temp_dir) / "config.yaml"
-            config_content = """
-search:
-  max_results: 50
-  processes: 2
-name_cleaning:
-  parser_type: humanname
-log_level: DEBUG
-"""
-            config_path.write_text(config_content)
-
-            # Run command with config
-            result = self.runner.invoke(app, ["--config", str(config_path), "--version"])
-
-            # Should succeed
-            self.assertEqual(result.exit_code, 0)
-
-        except ImportError:
-            self.skipTest("CLI module not available")
-
-
-if __name__ == "__main__":
-    unittest.main()
+from search_names import __version__
+from search_names.cli import app
+
+runner = CliRunner()
+
+
+def test_help_version_and_invalid_invocations() -> None:
+    help_result = runner.invoke(app, ["--help"])
+    version_result = runner.invoke(app, ["--version"])
+
+    assert help_result.exit_code == 0
+    assert "search-names" in help_result.stdout
+    assert version_result.exit_code == 0
+    assert __version__ in version_result.stdout
+    assert runner.invoke(app, ["invalid-command"]).exit_code != 0
+    assert runner.invoke(app, ["clean"]).exit_code != 0
+
+
+def test_clean_command_writes_normalized_names(tmp_path: Path) -> None:
+    input_file = tmp_path / "names.csv"
+    output_file = tmp_path / "cleaned.csv"
+    input_file.write_text("Name,seat\nJohn Doe,A\nJane Smith,B\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app, ["clean", str(input_file), "--output", str(output_file)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert output_file.exists()
+    assert "Processed 2 names" in result.stdout
+
+
+def test_merge_and_preprocess_commands_use_lookup_files(tmp_path: Path) -> None:
+    augmented_file = tmp_path / "augmented.csv"
+    preprocessed_file = tmp_path / "preprocessed.csv"
+    merge_result = runner.invoke(
+        app,
+        [
+            "merge-supp",
+            "examples/merge_supp_data/sample_in.csv",
+            "--output",
+            str(augmented_file),
+            "--prefix-file",
+            "examples/merge_supp_data/prefixes.csv",
+            "--nickname-file",
+            "examples/merge_supp_data/nick_names.txt",
+        ],
+    )
+
+    preprocess_result = runner.invoke(
+        app,
+        [
+            "preprocess",
+            str(augmented_file),
+            "--output",
+            str(preprocessed_file),
+            "--patterns",
+            "FirstName LastName",
+        ],
+    )
+
+    assert merge_result.exit_code == 0, merge_result.output
+    assert preprocess_result.exit_code == 0, preprocess_result.output
+    assert preprocessed_file.exists()
+
+
+def test_search_command_writes_stable_results(tmp_path: Path) -> None:
+    corpus_file = tmp_path / "corpus.csv"
+    names_file = tmp_path / "names.csv"
+    output_file = tmp_path / "results.csv"
+    corpus_file.write_text(
+        "uniqid,text\n1,Jane Doe spoke.\n2,Nobody spoke.\n", encoding="utf-8"
+    )
+    names_file.write_text("uniqid,search_name\n7,Jane Doe\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "search",
+            str(corpus_file),
+            "--names",
+            str(names_file),
+            "--output",
+            str(output_file),
+            "--processes",
+            "1",
+            "--fuzzy-rule",
+            "8:1",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Searched 2 rows; found 1 matches" in result.stdout
+    with output_file.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [row["count"] for row in rows] == ["1", "0"]
+
+
+def test_search_command_rejects_invalid_fuzzy_rule(tmp_path: Path) -> None:
+    corpus_file = tmp_path / "corpus.csv"
+    corpus_file.write_text("text\nJane Doe\n", encoding="utf-8")
+
+    result = runner.invoke(app, ["search", str(corpus_file), "--fuzzy-rule", "invalid"])
+
+    assert result.exit_code != 0
+    assert "invalid fuzzy rule" in result.output
+    assert "MINIMUM_LENGTH:MAX_EDIT_DISTANCE" in result.output
+
+
+def test_split_and_merge_results_commands(tmp_path: Path) -> None:
+    corpus_file = tmp_path / "corpus.csv"
+    chunk_pattern = str(tmp_path / "chunk_{chunk_id}.csv")
+    corpus_file.write_text("text\none\ntwo\nthree\n", encoding="utf-8")
+
+    split_result = runner.invoke(
+        app,
+        [
+            "split",
+            str(corpus_file),
+            "--output",
+            chunk_pattern,
+            "--size",
+            "2",
+        ],
+    )
+    merged_file = tmp_path / "merged.csv"
+    merge_result = runner.invoke(
+        app,
+        [
+            "merge-results",
+            str(tmp_path / "chunk_1.csv"),
+            str(tmp_path / "chunk_2.csv"),
+            "--output",
+            str(merged_file),
+        ],
+    )
+
+    assert split_result.exit_code == 0, split_result.output
+    assert merge_result.exit_code == 0, merge_result.output
+    with merged_file.open(encoding="utf-8", newline="") as stream:
+        assert len(list(csv.DictReader(stream))) == 3
+
+
+def test_pipeline_command_runs_all_four_stages(tmp_path: Path) -> None:
+    names_file = tmp_path / "raw_names.csv"
+    corpus_file = tmp_path / "corpus.csv"
+    output_dir = tmp_path / "pipeline"
+    names_file.write_text("Name,seat\nJohn Doe,federal:president\n", encoding="utf-8")
+    corpus_file.write_text("uniqid,text\n1,John Doe spoke.\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "pipeline",
+            str(names_file),
+            str(corpus_file),
+            "--output-dir",
+            str(output_dir),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (output_dir / "04_search_results.csv").exists()

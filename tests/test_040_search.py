@@ -1,30 +1,26 @@
-#!/usr/bin/env python
+"""Integration tests for corpus search."""
 
-"""
-Tests for secc_caste_ln.py
-"""
-
-import os
-import unittest
+import csv
+from pathlib import Path
 
 from search_names import search_names
 from search_names.pipeline.step4_search import load_names_file
 
 
-class TestSearch(unittest.TestCase):
-    def setUp(self):
-        self.input = "examples/search/text_corpus.csv"
-        self.name_file = "examples/preprocess/deduped_augmented_clean_names.csv"
-        self.output = "search_results.csv"
+def test_fixture_search_emits_one_row_per_input(tmp_path: Path) -> None:
+    output = tmp_path / "search_results.csv"
+    names = load_names_file("examples/preprocess/deduped_augmented_clean_names.csv")
 
-    def tearDown(self):
-        os.unlink(self.output)
+    stats = search_names(
+        "examples/search/text_corpus.csv",
+        names=names,
+        output_file=output,
+        processes=1,
+    )
 
-    def test_clean_names(self):
-        names = load_names_file(self.name_file)
-        search_names(self.input, names=names)
-        self.assertTrue(os.path.exists(self.output))
-
-
-if __name__ == "__main__":
-    unittest.main()
+    with output.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert output.exists()
+    assert stats["total_rows"] > 0
+    assert len(rows) == stats["total_rows"]
+    assert sum(int(row["count"]) for row in rows) == stats["total_matches"]
