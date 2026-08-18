@@ -1,0 +1,12 @@
+# Managed by copier — records template version for `copier update`. Do not edit.
+_commit: v1.0.1
+_src_path: gh:gojiplus/py-canon
+author_email: suriyant@gmail.com
+author_name: Suriyan Laohaprapanon
+coverage_floor: 85
+default_branch: master
+description: Prepare personal names and search CSV text corpora
+needs_cli: true
+org: appeler
+package_name: search_names
+project_name: search-names

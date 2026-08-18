@@ -50,8 +50,8 @@ coverage.xml
 
 # Documentation
 docs/_build/
+htmlcov/
 
 # Log files
 *.log
 .DS_Store
-/nltk_data

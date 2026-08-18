@@ -2,67 +2,22 @@ name: CI
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master]
   pull_request:
-    branches: [ master, main ]
+  schedule:
+    - cron: "17 6 * * 1"  # weekly: surface ecosystem drift on quiet repos
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
-
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: Install uv
-      uses: astral-sh/setup-uv@v9.0.0
-      with:
-        version: "latest"
-
-    - name: Set up Python ${{ matrix.python-version }}
-      run: uv python install ${{ matrix.python-version }}
-
-    - name: Setup uv cache
-      run: |
-        echo "UV_CACHE_DIR=$(uv cache dir)" >> $GITHUB_ENV
-
-    - name: Cache dependencies
-      uses: actions/cache@v6
-      with:
-        path: ${{ env.UV_CACHE_DIR }}
-        key: ${{ runner.os }}-${{ matrix.python-version }}-uv-${{ hashFiles('pyproject.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ matrix.python-version }}-uv-
-
-    - name: Install dependencies
-      run: |
-        uv sync --extra test --extra dev
-
-    - name: Download NLP models
-      run: |
-        uv pip install en-core-web-sm@https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
-        uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
-
-    - name: Run ruff linting
-      run: |
-        uv run ruff check .
-
-    - name: Run ruff formatting check
-      run: |
-        uv run ruff format --check .
-
-    - name: Set environment for tests
-      run: |
-        echo "TOKENIZERS_PARALLELISM=false" >> $GITHUB_ENV
-        echo "CUDA_VISIBLE_DEVICES=" >> $GITHUB_ENV
-        echo "OMP_NUM_THREADS=1" >> $GITHUB_ENV
-        echo "PYTHONUNBUFFERED=1" >> $GITHUB_ENV
-
-    - name: Run tests
-      run: |
-        uv run pytest tests/ -v
+  ci:
+    uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
+    with:
+      wheel-import: search_names
+      coverage-floor: 85
+      python-versions: '["3.11", "3.13"]'
