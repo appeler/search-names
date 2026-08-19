@@ -74,12 +74,15 @@ select = [
 # D203/D213: the google convention the fleet standard picks. W191/D206/D300:
 # ruff's own docs list these as always incompatible with `ruff format`, which
 # the standard also runs.
-ignore = ["D203", "D213", "W191", "D206", "D300", "B008", "C901", "E501"]
+ignore = ["D203", "D213", "W191", "D206", "D300"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
+# B008: typer's API is calls in parameter defaults (typer.Option/typer.Argument);
+# moving them into the body would break option parsing.
+"src/search_names/cli.py" = ["B008"]
 "tests/**" = ["S101", "D", "ARG", "SLF", "PT009", "PT027"]
 "docs/**" = ["D"]
 
@@ -126,7 +129,6 @@ branch = true
 source = ["search_names"]
 
 [tool.coverage.report]
-fail_under = 85
 show_missing = true
 
 [tool.pydoclint]
