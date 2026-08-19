@@ -210,7 +210,8 @@ class SemanticSimilarity:
 
         Args:
             model_name: Sentence transformer model name
-            revision: Immutable Hugging Face model revision. The bundled default is pinned.
+            revision: Immutable Hugging Face model revision. The bundled
+                default is pinned.
             local_files_only: If True, only use locally cached models
         """
         self.model_name = model_name

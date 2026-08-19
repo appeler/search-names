@@ -298,7 +298,8 @@ def search_cmd(
             parsed_fuzzy_rules.append((int(minimum_length), int(edit_distance)))
         except ValueError as error:
             raise typer.BadParameter(
-                f"invalid fuzzy rule {rule!r}; expected MINIMUM_LENGTH:MAX_EDIT_DISTANCE"
+                f"invalid fuzzy rule {rule!r}; "
+                "expected MINIMUM_LENGTH:MAX_EDIT_DISTANCE"
             ) from error
 
     try:
