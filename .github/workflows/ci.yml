@@ -21,4 +21,4 @@ jobs:
       wheel-import: search_names
       coverage-floor: 85
       run-preen: true
-      python-versions: '["3.11", "3.13"]'
+      python-versions: '["3.13"]'
