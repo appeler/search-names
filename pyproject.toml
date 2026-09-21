@@ -53,11 +53,14 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
 timeout = 300
-addopts = "--timeout=300 --tb=short --cov=search_names --cov-report=term-missing"
+addopts = "--timeout=300 --tb=short --cov=search_names --cov-report=term-missing --strict-config --strict-markers -ra"
 filterwarnings = [
     "ignore::pytest.PytestUnraisableExceptionWarning",
     "ignore::pytest.PytestConfigWarning",
 ]
+minversion = "6"
+log_level = "INFO"
+xfail_strict = true
 
 [tool.ruff]
 line-length = 88
