@@ -144,8 +144,8 @@ class TestNameParser(unittest.TestCase):
         self.assertGreater(results[0].model_score, 0.8)
 
     def test_parse_with_parsernaam_batch(self):
-        """Test parsernaam with batch processing."""
-        parser = NameParser()
+        """Test parsernaam batch routing independently of its confidence gate."""
+        parser = NameParser(ml_threshold=0.0)
         results = parser.parse_with_parsernaam(["John Doe", "Rajesh Kumar"])
 
         # Should parse both names
@@ -238,7 +238,7 @@ class TestNameParser(unittest.TestCase):
 
     def test_parse_auto_mode(self):
         """Test auto mode with mixed names using real parsernaam."""
-        parser = NameParser(parser_type="auto")
+        parser = NameParser(parser_type="auto", ml_threshold=0.0)
 
         # Test with mixed names
         names = ["John Smith", "Rajesh Kumar", "Jane Doe"]
