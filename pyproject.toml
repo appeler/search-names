@@ -142,6 +142,7 @@ allow-init-docstring = true
 exclude = '\.venv|tests|docs'
 
 [tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"
 # The corpora are names: a "misspelling" in a list of surnames is usually a
 # real surname, and correcting one would corrupt the data. codespell reported
 # 25,026 findings across this repo; seven were real, all in
