@@ -1,4 +1,4 @@
-# search-names
+# search names: find people’s names across text corpora
 
 [![CI](https://github.com/appeler/search-names/actions/workflows/ci.yml/badge.svg)](https://github.com/appeler/search-names/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/search-names.svg)](https://pypi.org/project/search-names/)
