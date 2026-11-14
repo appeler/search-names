@@ -4,7 +4,7 @@ import csv
 import re
 from pathlib import Path
 
-from nameparser import parse
+from ..enhanced_name_parser import NameParser, ParsedName, ParserType
 
 DEFAULT_OUTPUT = "clean_names.csv"
 OUTPUT_COLUMNS = (
@@ -22,22 +22,26 @@ _ROMAN_NUMERALS = frozenset(
 _STANDARD_SUFFIX = re.compile(r"(JR|SR|PHD)[^.]", flags=re.IGNORECASE)
 
 
-def _parse_name(raw_name: str) -> dict[str, str]:
+def _strip_asides(raw_name: str) -> str:
+    """Drop bracketed and quoted asides, which hold nicknames and notes."""
     cleaned = re.sub(r"\s*\(.*?\)\s*", " ", raw_name)
-    cleaned = re.sub(r"\s*['\"].*?['\"]\s*", " ", cleaned)
-    parsed = parse(cleaned)
+    return re.sub(r"\s*['\"].*?['\"]\s*", " ", cleaned)
 
-    if not parsed.family:
-        suffix_parts = parsed.suffix.split(",")
+
+def _components(parsed: ParsedName, parser: NameParser) -> dict[str, str]:
+    if not parsed.last_name:
+        suffix_parts = (parsed.suffix or "").split(",")
         if len(suffix_parts) >= 2:
-            parsed = parse(f"{parsed.given}, {suffix_parts[1]} {suffix_parts[0]}")
+            parsed = parser.parse_with_nameparser(
+                f"{parsed.first_name or ''}, {suffix_parts[1]} {suffix_parts[0]}"
+            )
 
-    first_name = parsed.given.casefold()
-    middle_name = parsed.middle.casefold()
-    title = parsed.title
+    first_name = (parsed.first_name or "").casefold()
+    middle_name = (parsed.middle_name or "").casefold()
+    title = parsed.title or ""
     roman_numeral = ""
     suffix_parts = []
-    for suffix_part in parsed.suffix.split(","):
+    for suffix_part in (parsed.suffix or "").split(","):
         normalized_suffix = suffix_part.strip()
         if normalized_suffix.upper() in _ROMAN_NUMERALS:
             roman_numeral = normalized_suffix
@@ -66,7 +70,7 @@ def _parse_name(raw_name: str) -> dict[str, str]:
     return {
         "FirstName": first_name.upper(),
         "MiddleInitial/Name": middle_name.upper(),
-        "LastName": parsed.family,
+        "LastName": parsed.last_name or "",
         "RomanNumeral": roman_numeral.upper(),
         "Title": title.upper(),
         "Suffix": suffix.upper(),
@@ -78,8 +82,27 @@ def clean_names(
     output_file: str | Path = DEFAULT_OUTPUT,
     name_column: str = "Name",
     keep_duplicates: bool = False,
+    parser_type: ParserType = "nameparser",
 ) -> list[dict[str, str]]:
-    """Parse names, preserve source columns, and write normalized CSV records."""
+    """Parse names, preserve source columns, and write normalized CSV records.
+
+    Args:
+        input_file: CSV file with a column of names.
+        output_file: Where to write the normalized records.
+        name_column: Column that holds the names.
+        keep_duplicates: Keep names whose components repeat an earlier row.
+        parser_type: Which parser splits a name into first and last name.
+            "nameparser" reads given name first unless a comma says otherwise.
+            "parsernaam" asks a model which order each name is written in.
+            "auto" asks the model only for names with a common Indian name word.
+
+    Returns:
+        The normalized records, in output order.
+
+    Raises:
+        ValueError: If the name column is missing or parser_type is unknown.
+    """
+    parser = NameParser(parser_type=parser_type)
     input_path = Path(input_file)
     output_path = Path(output_file)
     records: list[dict[str, str]] = []
@@ -95,22 +118,28 @@ def clean_names(
             if column not in OUTPUT_COLUMNS
         ]
 
-        for source_row in reader:
-            for raw_name in re.split(r"[&/]", source_row[name_column]):
-                components = _parse_name(raw_name)
-                identity = (
-                    components["FirstName"],
-                    components["MiddleInitial/Name"],
-                    components["LastName"],
-                    components["RomanNumeral"],
-                )
-                if not keep_duplicates and identity in seen_names:
-                    continue
-                seen_names.add(identity)
-                record = {column: source_row[column] for column in source_columns}
-                record.update(components)
-                record["uniqid"] = str(len(records) + 1)
-                records.append(record)
+        entries = [
+            (source_row, raw_name)
+            for source_row in reader
+            for raw_name in re.split(r"[&/]", source_row[name_column])
+        ]
+
+    parsed_names = parser.parse([_strip_asides(raw_name) for _, raw_name in entries])
+    for (source_row, _), parsed in zip(entries, parsed_names, strict=True):
+        components = _components(parsed, parser)
+        identity = (
+            components["FirstName"],
+            components["MiddleInitial/Name"],
+            components["LastName"],
+            components["RomanNumeral"],
+        )
+        if not keep_duplicates and identity in seen_names:
+            continue
+        seen_names.add(identity)
+        record = {column: source_row[column] for column in source_columns}
+        record.update(components)
+        record["uniqid"] = str(len(records) + 1)
+        records.append(record)
 
     with output_path.open("w", encoding="utf-8", newline="") as output_stream:
         writer = csv.DictWriter(

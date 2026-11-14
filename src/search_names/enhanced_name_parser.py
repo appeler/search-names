@@ -8,7 +8,6 @@ from typing import Any, Literal, overload
 
 import nameparser
 import pandas as pd
-from parsernaam import parse_names as parse_with_parsernaam_model
 
 from .logging_config import get_logger
 
@@ -44,6 +43,31 @@ _INDIAN_NAME_TOKENS = frozenset(
         "chatterjee",
     }
 )
+
+
+_FAMILY_FIRST = nameparser.Parser(
+    policy=nameparser.Policy(name_order=nameparser.FAMILY_FIRST)
+)
+_NAME_ROLES = frozenset(
+    {nameparser.Role.GIVEN, nameparser.Role.MIDDLE, nameparser.Role.FAMILY}
+)
+
+
+def _name_words_for_model(name: str) -> list[str]:
+    """Return the name words whose order parsernaam should judge, if any."""
+    words = [
+        token for token in nameparser.parse(name).tokens if token.role in _NAME_ROLES
+    ]
+    if not words or words[0].role is nameparser.Role.FAMILY:
+        return []
+    return [token.text for token in words]
+
+
+def parse_with_parsernaam_model(names: pd.DataFrame) -> pd.DataFrame:
+    """Run parsernaam, loading it and torch only when a model parse is asked for."""
+    from parsernaam import parse_names as run_model
+
+    return run_model(names)
 
 
 @dataclass
@@ -147,25 +171,37 @@ class NameParser:
             return ParsedName(original=name, parser_used="nameparser")
 
     def parse_with_parsernaam(self, names: list[str]) -> list[ParsedName]:
-        """Parse names using parsernaam (batch processing)."""
+        """Parse names, letting parsernaam decide which name word comes first.
+
+        nameparser sets aside titles, suffixes, and nicknames. parsernaam sees
+        the name words that remain and says whether they are written given
+        name first or family name first. A name written with a comma after the
+        family name already states its order and skips the model.
+        """
         try:
-            parsed_names: list[ParsedName] = []
-            for offset in range(0, len(names), self.batch_size):
-                batch = names[offset : offset + self.batch_size]
-                results = parse_with_parsernaam_model(pd.DataFrame({"name": batch}))
+            parsed_names = [self.parse_with_nameparser(name) for name in names]
+            pending = [
+                (index, " ".join(words))
+                for index, name in enumerate(names)
+                if (words := _name_words_for_model(name))
+            ]
+            for offset in range(0, len(pending), self.batch_size):
+                batch = pending[offset : offset + self.batch_size]
+                results = parse_with_parsernaam_model(
+                    pd.DataFrame({"name": [words for _, words in batch]})
+                )
                 if "parsed_name" not in results.columns or len(results) != len(batch):
                     raise ValueError("parsernaam returned an unexpected result schema")
 
-                for original, prediction in zip(
+                for (index, _), prediction in zip(
                     batch, results["parsed_name"], strict=True
                 ):
-                    parsed = self._parsed_name_from_prediction(original, prediction)
+                    parsed = self._parsed_name_from_prediction(names[index], prediction)
                     if (
                         parsed.model_score is not None
-                        and parsed.model_score < self.ml_threshold
+                        and parsed.model_score >= self.ml_threshold
                     ):
-                        parsed = self.parse_with_nameparser(original)
-                    parsed_names.append(parsed)
+                        parsed_names[index] = parsed
 
             return parsed_names
 
@@ -192,28 +228,29 @@ class NameParser:
         ):
             raise ValueError("parsernaam probability must be between 0 and 1")
 
-        tokens = original.split()
-        first_name = None
-        middle_name = None
-        last_name = None
-
+        given_first = nameparser.parse(original)
+        read = _FAMILY_FIRST.parse(original) if label == "last_first" else given_first
+        first_name = read.given or None
+        middle_name = read.middle or None
+        last_name = read.family or None
+        name_words = " ".join(
+            token.text for token in given_first.tokens if token.role in _NAME_ROLES
+        )
         if label == "first":
-            first_name = original.strip() or None
+            first_name, middle_name, last_name = name_words or None, None, None
         elif label == "last":
-            last_name = original.strip() or None
-        elif label in {"first_last", "last_first"} and len(tokens) >= 2:
-            leading, *middle, trailing = tokens
-            middle_name = " ".join(middle) or None
-            if label == "first_last":
-                first_name, last_name = leading, trailing
-            else:
-                last_name, first_name = leading, trailing
+            first_name, middle_name, last_name = None, None, name_words or None
+        elif label == "unknown":
+            first_name, middle_name, last_name = None, None, None
 
         return ParsedName(
             original=original,
             first_name=first_name,
             middle_name=middle_name,
             last_name=last_name,
+            title=read.title or None,
+            suffix=read.suffix or None,
+            nickname=read.nickname or None,
             model_score=float(probability),
             parser_used="parsernaam",
         )

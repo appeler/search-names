@@ -199,6 +199,57 @@ class TestNameParser(unittest.TestCase):
         self.assertEqual(result.first_name, "John")
         self.assertEqual(result.last_name, "Doe")
 
+    @patch("search_names.enhanced_name_parser.parse_with_parsernaam_model")
+    def test_parsernaam_sees_only_name_words(self, mock_parse):
+        """Keep titles and suffixes out of the model and in the result."""
+        mock_parse.return_value = pd.DataFrame(
+            {
+                "name": ["Nichols Richard Alan"],
+                "parsed_name": [
+                    {"name": "Nichols Richard Alan", "type": "last_first", "prob": 0.98}
+                ],
+            }
+        )
+
+        result = NameParser(parser_type="parsernaam").parse(
+            "Dr. Nichols Richard Alan Jr."
+        )
+
+        self.assertEqual(
+            mock_parse.call_args.args[0]["name"].tolist(), ["Nichols Richard Alan"]
+        )
+        self.assertEqual(result.first_name, "Richard")
+        self.assertEqual(result.middle_name, "Alan")
+        self.assertEqual(result.last_name, "Nichols")
+        self.assertEqual(result.title, "Dr.")
+        self.assertEqual(result.suffix, "Jr.")
+        self.assertEqual(result.parser_used, "parsernaam")
+        self.assertEqual(result.model_score, 0.98)
+
+    @patch("search_names.enhanced_name_parser.parse_with_parsernaam_model")
+    def test_parsernaam_skips_names_written_family_comma_given(self, mock_parse):
+        """A comma after the family name states the order; no model is needed."""
+        result = NameParser(parser_type="parsernaam").parse("HUTCHINSON, ASA")
+
+        mock_parse.assert_not_called()
+        self.assertEqual(result.first_name, "ASA")
+        self.assertEqual(result.last_name, "HUTCHINSON")
+        self.assertIsNone(result.model_score)
+        self.assertEqual(result.parser_used, "nameparser")
+
+    def test_parsernaam_single_word_labels(self):
+        """Map the one-word labels onto a single component, without the title."""
+        first = NameParser._parsed_name_from_prediction(
+            "Dr. Jan", {"type": "first", "prob": 0.9}
+        )
+        last = NameParser._parsed_name_from_prediction(
+            "Dr. Smith", {"type": "last", "prob": 0.9}
+        )
+
+        self.assertEqual((first.first_name, first.last_name), ("Jan", None))
+        self.assertEqual((last.first_name, last.last_name), (None, "Smith"))
+        self.assertEqual((first.title, last.title), ("Dr.", "Dr."))
+
     def test_parsernaam_rejects_invalid_probability(self):
         """Reject malformed model probabilities before constructing results."""
         parser = NameParser(parser_type="parsernaam")

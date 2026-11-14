@@ -2,7 +2,9 @@
 
 import csv
 from pathlib import Path
+from unittest.mock import patch
 
+import pandas as pd
 import pytest
 
 from search_names import clean_names
@@ -69,3 +71,34 @@ def test_clean_names_reads_name_words_as_names(
     assert record["LastName"] == last
     assert record["Suffix"] == suffix
     assert record["Title"] == ""
+
+
+def _write_names(path: Path, names: list[str]) -> Path:
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        csv.writer(stream).writerows([["Name"], *([name] for name in names)])
+    return path
+
+
+def test_clean_names_can_ask_parsernaam_for_the_name_order(tmp_path: Path) -> None:
+    input_file = _write_names(tmp_path / "input.csv", ["Dr. Nichols Richard Jr."])
+    prediction = {"name": "Nichols Richard", "type": "last_first", "prob": 0.99}
+
+    by_rules = clean_names(input_file, tmp_path / "rules.csv")
+    with patch(
+        "search_names.enhanced_name_parser.parse_with_parsernaam_model",
+        return_value=pd.DataFrame({"parsed_name": [prediction]}),
+    ):
+        by_model = clean_names(
+            input_file, tmp_path / "model.csv", parser_type="parsernaam"
+        )
+
+    assert (by_rules[0]["FirstName"], by_rules[0]["LastName"]) == ("NICHOLS", "Richard")
+    assert (by_model[0]["FirstName"], by_model[0]["LastName"]) == ("RICHARD", "Nichols")
+    assert (by_model[0]["Title"], by_model[0]["Suffix"]) == ("DR.", "JR.")
+
+
+def test_clean_names_rejects_an_unknown_parser(tmp_path: Path) -> None:
+    input_file = _write_names(tmp_path / "input.csv", ["Jane Doe"])
+
+    with pytest.raises(ValueError, match="parser_type"):
+        clean_names(input_file, tmp_path / "output.csv", parser_type="humanname")
