@@ -3,7 +3,7 @@ Tests for enhanced_name_parser module
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -25,7 +25,7 @@ class TestParsedName(unittest.TestCase):
             first_name="John",
             last_name="Doe",
             model_score=0.95,
-            parser_used="humanname",
+            parser_used="nameparser",
         )
 
         self.assertEqual(parsed.original, "John Doe")
@@ -65,7 +65,7 @@ class TestParsedName(unittest.TestCase):
         self.assertEqual(result["first_name"], "John")
         self.assertEqual(result["last_name"], "Doe")
         self.assertEqual(result["model_score"], 0.9)
-        self.assertEqual(result["parser_used"], "humanname")
+        self.assertEqual(result["parser_used"], "nameparser")
 
 
 class TestNameParser(unittest.TestCase):
@@ -95,20 +95,10 @@ class TestNameParser(unittest.TestCase):
         with self.assertRaises(ValueError):
             NameParser(ml_threshold=1.1)
 
-    @patch("search_names.enhanced_name_parser.HumanName")
-    def test_parse_with_humanname(self, mock_humanname):
-        """Test parsing with HumanName."""
-        mock_parsed = MagicMock()
-        mock_parsed.first = "John"
-        mock_parsed.middle = "M"
-        mock_parsed.last = "Doe"
-        mock_parsed.title = "Dr"
-        mock_parsed.suffix = "Jr"
-        mock_parsed.nickname = None
-        mock_humanname.return_value = mock_parsed
-
-        parser = NameParser(parser_type="humanname")
-        result = parser.parse_with_humanname("Dr John M Doe Jr")
+    def test_parse_with_nameparser(self):
+        """Map nameparser's given and family fields onto first and last name."""
+        parser = NameParser(parser_type="nameparser")
+        result = parser.parse_with_nameparser("Dr John M Doe Jr")
 
         self.assertIsInstance(result, ParsedName)
         self.assertEqual(result.first_name, "John")
@@ -116,18 +106,19 @@ class TestNameParser(unittest.TestCase):
         self.assertEqual(result.last_name, "Doe")
         self.assertEqual(result.title, "Dr")
         self.assertEqual(result.suffix, "Jr")
-        self.assertEqual(result.parser_used, "humanname")
+        self.assertIsNone(result.nickname)
+        self.assertEqual(result.parser_used, "nameparser")
 
-    @patch("search_names.enhanced_name_parser.HumanName")
-    def test_parse_with_humanname_error(self, mock_humanname):
-        """Test error handling in humanname parsing."""
-        mock_humanname.side_effect = Exception("Parse error")
+    @patch("search_names.enhanced_name_parser.nameparser.parse")
+    def test_parse_with_nameparser_error(self, mock_parse):
+        """Test error handling in nameparser parsing."""
+        mock_parse.side_effect = Exception("Parse error")
 
         parser = NameParser()
-        result = parser.parse_with_humanname("Invalid Name")
+        result = parser.parse_with_nameparser("Invalid Name")
 
         self.assertIsNone(result.model_score)
-        self.assertEqual(result.parser_used, "humanname")
+        self.assertEqual(result.parser_used, "nameparser")
 
     def test_parse_with_parsernaam(self):
         """Test parsing with parsernaam using real module."""
@@ -204,7 +195,7 @@ class TestNameParser(unittest.TestCase):
             "John Doe"
         )
 
-        self.assertEqual(result.parser_used, "humanname")
+        self.assertEqual(result.parser_used, "nameparser")
         self.assertEqual(result.first_name, "John")
         self.assertEqual(result.last_name, "Doe")
 
@@ -219,7 +210,7 @@ class TestNameParser(unittest.TestCase):
 
     def test_parse_single_name(self):
         """Test parsing a single name."""
-        parser = NameParser(parser_type="humanname")
+        parser = NameParser(parser_type="nameparser")
         result = parser.parse("John Doe")
 
         self.assertIsInstance(result, ParsedName)
@@ -227,7 +218,7 @@ class TestNameParser(unittest.TestCase):
 
     def test_parse_list_of_names(self):
         """Test parsing a list of names."""
-        parser = NameParser(parser_type="humanname")
+        parser = NameParser(parser_type="nameparser")
         names = ["John Doe", "Jane Smith"]
         results = parser.parse(names)
 
@@ -249,18 +240,18 @@ class TestNameParser(unittest.TestCase):
         self.assertIsInstance(results[1], ParsedName)
         self.assertIsInstance(results[2], ParsedName)
 
-        # John Smith should use humanname
-        self.assertEqual(results[0].parser_used, "humanname")
+        # John Smith should use nameparser
+        self.assertEqual(results[0].parser_used, "nameparser")
         # Rajesh Kumar should use parsernaam (Indian name detection)
         self.assertEqual(results[1].parser_used, "parsernaam")
-        # Jane Doe should use humanname
-        self.assertEqual(results[2].parser_used, "humanname")
+        # Jane Doe should use nameparser
+        self.assertEqual(results[2].parser_used, "nameparser")
 
     def test_parse_dataframe(self):
         """Test parsing names in a DataFrame."""
         df = pd.DataFrame({"name": ["John Doe", "Jane Smith"], "id": [1, 2]})
 
-        parser = NameParser(parser_type="humanname")
+        parser = NameParser(parser_type="nameparser")
         result_df = parser.parse_dataframe(df, name_column="name")
 
         # Check new columns were added
@@ -279,7 +270,7 @@ class TestNameParser(unittest.TestCase):
             index=pd.Index([42], name="row_id"),
         )
 
-        result = NameParser(parser_type="humanname").parse_dataframe(df)
+        result = NameParser(parser_type="nameparser").parse_dataframe(df)
 
         self.assertEqual(result.index.tolist(), [42])
         self.assertEqual(result.loc[42, "parsed_first_name"], "John")
@@ -340,7 +331,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         results = compare_parsers("John Doe")
 
         # All parsers should be available
-        self.assertIn("humanname", results)
+        self.assertIn("nameparser", results)
         self.assertIn("parsernaam", results)
         self.assertIn("auto", results)
 
@@ -354,7 +345,7 @@ class TestConvenienceFunctions(unittest.TestCase):
         results = compare_parsers("Rajesh Kumar")
 
         # All parsers should be available
-        self.assertIn("humanname", results)
+        self.assertIn("nameparser", results)
         self.assertIn("parsernaam", results)
         self.assertIn("auto", results)
 
@@ -376,7 +367,7 @@ class TestIntegration(unittest.TestCase):
             "Mary-Jane O'Connor",
         ]
 
-        parser = NameParser(parser_type="humanname")
+        parser = NameParser(parser_type="nameparser")
         results = parser.parse(names)
 
         self.assertEqual(len(results), len(names))
@@ -385,7 +376,7 @@ class TestIntegration(unittest.TestCase):
         for result, original in zip(results, names, strict=False):
             self.assertEqual(result.original, original)
             self.assertIsNotNone(result.first_name or result.last_name)
-            self.assertEqual(result.parser_used, "humanname")
+            self.assertEqual(result.parser_used, "nameparser")
 
     def test_dataframe_integration(self):
         """Test DataFrame integration."""
@@ -398,7 +389,7 @@ class TestIntegration(unittest.TestCase):
         )
 
         # Parse names
-        result_df = parse_names(df, parser_type="humanname")
+        result_df = parse_names(df, parser_type="nameparser")
 
         # Verify structure
         self.assertEqual(len(result_df), 3)

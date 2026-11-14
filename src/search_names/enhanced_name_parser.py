@@ -1,4 +1,4 @@
-"""Enhanced name parser with support for both HumanName and parsernaam."""
+"""Parse personal names with nameparser, parsernaam, or a choice between them."""
 
 import re
 from collections.abc import Mapping
@@ -6,17 +6,15 @@ from dataclasses import dataclass
 from math import isfinite
 from typing import Any, Literal, overload
 
+import nameparser
 import pandas as pd
-
-# Import nameparser (always available)
-from nameparser import HumanName
 from parsernaam import parse_names as parse_with_parsernaam_model
 
 from .logging_config import get_logger
 
 logger = get_logger("enhanced_name_parser")
 
-ParserType = Literal["auto", "humanname", "parsernaam"]
+ParserType = Literal["auto", "nameparser", "parsernaam"]
 
 _INDIAN_NAME_TOKENS = frozenset(
     {
@@ -60,7 +58,7 @@ class ParsedName:
     suffix: str | None = None
     nickname: str | None = None
     model_score: float | None = None
-    parser_used: str = "humanname"
+    parser_used: str = "nameparser"
 
     def full_name(self) -> str:
         """Get full name from components."""
@@ -104,15 +102,17 @@ class NameParser:
         """Initialize name parser.
 
         Args:
-            parser_type: "humanname", "parsernaam", or "auto"
+            parser_type: "nameparser", "parsernaam", or "auto"
             batch_size: Batch size for parsernaam processing
             ml_threshold: Confidence threshold for ML predictions
 
         Raises:
             ValueError: If any parser setting is invalid.
         """
-        if parser_type not in {"auto", "humanname", "parsernaam"}:
-            raise ValueError("parser_type must be 'auto', 'humanname', or 'parsernaam'")
+        if parser_type not in {"auto", "nameparser", "parsernaam"}:
+            raise ValueError(
+                "parser_type must be 'auto', 'nameparser', or 'parsernaam'"
+            )
         if batch_size < 1:
             raise ValueError("batch_size must be at least 1")
         if not 0 <= ml_threshold <= 1:
@@ -124,27 +124,27 @@ class NameParser:
 
         logger.info("Initialized NameParser with type: %s", self.parser_type)
 
-    def parse_with_humanname(self, name: str) -> ParsedName:
-        """Parse name using HumanName."""
+    def parse_with_nameparser(self, name: str) -> ParsedName:
+        """Parse name using nameparser's rule-based parser."""
         if not name.strip():
-            return ParsedName(original=name, parser_used="humanname")
+            return ParsedName(original=name, parser_used="nameparser")
 
         try:
-            parsed = HumanName(name)
+            parsed = nameparser.parse(name)
 
             return ParsedName(
                 original=name,
-                first_name=parsed.first or None,
+                first_name=parsed.given or None,
                 middle_name=parsed.middle or None,
-                last_name=parsed.last or None,
+                last_name=parsed.family or None,
                 title=parsed.title or None,
                 suffix=parsed.suffix or None,
                 nickname=parsed.nickname or None,
-                parser_used="humanname",
+                parser_used="nameparser",
             )
         except Exception as error:
-            logger.error("Error parsing name %r with HumanName: %s", name, error)
-            return ParsedName(original=name, parser_used="humanname")
+            logger.error("Error parsing name %r with nameparser: %s", name, error)
+            return ParsedName(original=name, parser_used="nameparser")
 
     def parse_with_parsernaam(self, names: list[str]) -> list[ParsedName]:
         """Parse names using parsernaam (batch processing)."""
@@ -164,15 +164,15 @@ class NameParser:
                         parsed.model_score is not None
                         and parsed.model_score < self.ml_threshold
                     ):
-                        parsed = self.parse_with_humanname(original)
+                        parsed = self.parse_with_nameparser(original)
                     parsed_names.append(parsed)
 
             return parsed_names
 
         except Exception as error:
             logger.error("Error parsing names with parsernaam: %s", error)
-            # Fall back to humanname
-            return [self.parse_with_humanname(name) for name in names]
+            # Fall back to nameparser
+            return [self.parse_with_nameparser(name) for name in names]
 
     @staticmethod
     def _parsed_name_from_prediction(original: str, prediction: object) -> ParsedName:
@@ -240,21 +240,21 @@ class NameParser:
         """
         # Handle single name
         if isinstance(name, str):
-            if self.parser_type == "humanname":
-                return self.parse_with_humanname(name)
+            if self.parser_type == "nameparser":
+                return self.parse_with_nameparser(name)
             if self.parser_type == "parsernaam":
                 results = self.parse_with_parsernaam([name])
                 return results[0] if results else ParsedName(original=name)
             if self.is_indian_name(name):
                 results = self.parse_with_parsernaam([name])
-                return results[0] if results else self.parse_with_humanname(name)
-            return self.parse_with_humanname(name)
+                return results[0] if results else self.parse_with_nameparser(name)
+            return self.parse_with_nameparser(name)
 
         # Handle list of names
         names_list = name
 
-        if self.parser_type == "humanname":
-            return [self.parse_with_humanname(n) for n in names_list]
+        if self.parser_type == "nameparser":
+            return [self.parse_with_nameparser(n) for n in names_list]
         if self.parser_type == "parsernaam":
             return self.parse_with_parsernaam(names_list)
 
@@ -269,7 +269,7 @@ class NameParser:
         return [
             parsed_by_index[index]
             if index in parsed_by_index
-            else self.parse_with_humanname(candidate)
+            else self.parse_with_nameparser(candidate)
             for index, candidate in enumerate(names_list)
         ]
 
@@ -324,7 +324,7 @@ def parse_names(
 
     Args:
         names: Single name, list of names, or DataFrame
-        parser_type: "humanname", "parsernaam", or "auto"
+        parser_type: "nameparser", "parsernaam", or "auto"
         name_column: Column name if input is DataFrame
 
     Returns:
@@ -348,9 +348,9 @@ def compare_parsers(name: str) -> dict[str, ParsedName]:
     """
     results = {}
 
-    # Parse with HumanName
-    hn_parser = NameParser(parser_type="humanname")
-    results["humanname"] = hn_parser.parse(name)
+    # Parse with nameparser
+    np_parser = NameParser(parser_type="nameparser")
+    results["nameparser"] = np_parser.parse(name)
 
     # Parse with parsernaam
     pn_parser = NameParser(parser_type="parsernaam")

@@ -4,7 +4,7 @@ import csv
 import re
 from pathlib import Path
 
-from nameparser import HumanName
+from nameparser import parse
 
 DEFAULT_OUTPUT = "clean_names.csv"
 OUTPUT_COLUMNS = (
@@ -25,14 +25,14 @@ _STANDARD_SUFFIX = re.compile(r"(JR|SR|PHD)[^.]", flags=re.IGNORECASE)
 def _parse_name(raw_name: str) -> dict[str, str]:
     cleaned = re.sub(r"\s*\(.*?\)\s*", " ", raw_name)
     cleaned = re.sub(r"\s*['\"].*?['\"]\s*", " ", cleaned)
-    parsed = HumanName(cleaned)
+    parsed = parse(cleaned)
 
-    if not parsed.last:
+    if not parsed.family:
         suffix_parts = parsed.suffix.split(",")
         if len(suffix_parts) >= 2:
-            parsed = HumanName(f"{parsed.first}, {suffix_parts[1]} {suffix_parts[0]}")
+            parsed = parse(f"{parsed.given}, {suffix_parts[1]} {suffix_parts[0]}")
 
-    first_name = parsed.first.casefold()
+    first_name = parsed.given.casefold()
     middle_name = parsed.middle.casefold()
     title = parsed.title
     roman_numeral = ""
@@ -66,7 +66,7 @@ def _parse_name(raw_name: str) -> dict[str, str]:
     return {
         "FirstName": first_name.upper(),
         "MiddleInitial/Name": middle_name.upper(),
-        "LastName": parsed.last,
+        "LastName": parsed.family,
         "RomanNumeral": roman_numeral.upper(),
         "Title": title.upper(),
         "Suffix": suffix.upper(),
