@@ -7,6 +7,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.progress import Progress
 
+from .enhanced_name_parser import ParserType
 from .logging_config import get_logger, setup_logging
 from .merge_results import merge_results as merge_results_func
 from .pipeline import augment_names, clean_names, preprocess_names, search_names
@@ -77,6 +78,16 @@ def clean_names_cmd(
     keep_duplicates: bool = typer.Option(
         False, "--keep-duplicates", "-a", help="Keep duplicate names (don't remove)"
     ),
+    parser_type: ParserType = typer.Option(
+        "nameparser",
+        "--parser",
+        "-p",
+        help=(
+            "Parser that splits first and last name: nameparser (rules; given "
+            "name first unless a comma says otherwise), parsernaam (a model "
+            "judges the order), or auto (the model for likely Indian names)"
+        ),
+    ),
 ):
     """Clean and standardize names in a CSV file.
 
@@ -90,7 +101,9 @@ def clean_names_cmd(
 
     try:
         with console.status("[bold green]Cleaning names..."):
-            result = clean_names(input_file, output_file, column, keep_duplicates)
+            result = clean_names(
+                input_file, output_file, column, keep_duplicates, parser_type
+            )
 
         if result:
             rprint(f"✓ Cleaned names saved to [bold green]{output_file}[/bold green]")
@@ -388,6 +401,16 @@ def pipeline_cmd(
     skip_preprocess: bool = typer.Option(
         False, "--skip-preprocess", help="Skip preprocessing step"
     ),
+    parser_type: ParserType = typer.Option(
+        "nameparser",
+        "--parser",
+        "-p",
+        help=(
+            "Parser that splits first and last name: nameparser (rules; given "
+            "name first unless a comma says otherwise), parsernaam (a model "
+            "judges the order), or auto (the model for likely Indian names)"
+        ),
+    ),
 ):
     """Run the complete pipeline: clean → merge-supp → preprocess → search.
 
@@ -405,7 +428,7 @@ def pipeline_cmd(
         if not skip_clean:
             clean_output = output_dir / "01_clean_names.csv"
             rprint("[bold blue]Step 1:[/bold blue] Cleaning names...")
-            clean_names(str(input_file), str(clean_output), "Name", False)
+            clean_names(str(input_file), str(clean_output), "Name", False, parser_type)
             rprint(f"✓ Names cleaned: {clean_output}")
         else:
             clean_output = input_file

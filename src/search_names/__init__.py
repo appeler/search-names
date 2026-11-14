@@ -3,6 +3,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from . import engines, models, nlp_engine
+from .enhanced_name_parser import NameParser, ParsedName, parse_names
 from .logging_config import get_logger, setup_logging
 from .merge_results import merge_results
 from .pipeline import clean_names, search_names
@@ -16,6 +17,8 @@ except PackageNotFoundError:
     __version__ = "unknown"
 
 __all__ = [
+    "NameParser",
+    "ParsedName",
     "augment_names",
     "clean_names",
     "engines",
@@ -23,6 +26,7 @@ __all__ = [
     "merge_results",
     "models",
     "nlp_engine",
+    "parse_names",
     "preprocess",
     "search_names",
     "setup_logging",

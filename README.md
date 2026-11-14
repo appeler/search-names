@@ -106,19 +106,43 @@ preprocess(
 The preprocessing stage’s edit-length thresholds are retained in its output.
 The search API uses the explicit `fuzzy_rules` pairs shown above.
 
-## Parse names
-
-`NameParser` combines `nameparser` with `parsernaam`. The latter returns a model
-label (`first`, `last`, `first_last`, or `last_first`) and probability;
-`search-names` converts that record to explicit components. Probabilities below
-`ml_threshold` fall back to deterministic `nameparser` parsing. Deterministic
-parses have `model_score=None`; the package does not invent a confidence value.
+`clean_names` splits each name into first and last name with `nameparser`,
+which reads the given name first unless a comma says otherwise. For lists that
+write the family name first without a comma, pass `parser_type="parsernaam"`
+to have a model judge the order of each name (`--parser parsernaam` on the
+command line):
 
 ```python
-from search_names.enhanced_name_parser import NameParser
+clean_names(
+    input_file="raw_names.csv",
+    output_file="clean_names.csv",
+    parser_type="parsernaam",
+)
+```
+
+We tested both on the names of 3,000 members of the US Congress, each
+rewritten in a given order, with the default `ml_threshold` of 0.8. `nameparser`
+recovers first and last name for 99% of names written given name first and, by
+construction, none written family name first without a comma. `parsernaam`
+recovers 95% and 55%. Choose by how your list is written. If `parsernaam` or
+torch cannot load, `parser_type="parsernaam"` raises instead of falling back.
+
+## Parse names
+
+`NameParser` combines `nameparser` with `parsernaam`. `nameparser` sets aside
+titles, suffixes, and nicknames. `parsernaam` reads the name words that remain
+and returns a label (`first`, `last`, `first_last`, or `last_first`) and a
+probability, which decide whether the name is read given name first or family
+name first. Names written `Family, Given` state their order and skip the model.
+Probabilities below `ml_threshold` fall back to `nameparser` alone, which reads
+given name first. Such parses have `model_score=None`; the package does not
+invent a confidence value.
+
+```python
+from search_names import NameParser
 
 parser = NameParser(parser_type="parsernaam", ml_threshold=0.8)
-parsed = parser.parse("Nakamura Hiro")
+parsed = parser.parse("Dr. Nichols Richard Jr.")
 
 print(parsed.first_name, parsed.last_name, parsed.model_score)
 ```

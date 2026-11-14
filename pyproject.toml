@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "search-names"
-version = "0.6.0"
+version = "0.7.0"
 description = "Prepare personal names and search CSV text corpora"
 authors = [
     {name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com"},
@@ -25,8 +25,8 @@ classifiers = [
 ]
 keywords = ["search", "names", "text", "corpus", "pattern", "ner", "nlp", "entity-recognition", "entity-linking", "fuzzy-matching"]
 dependencies = [
-    # nameparser 3.0 replaced HumanName with parse() and renamed the name fields.
-    "nameparser>=1.1.0,<3",
+    # Each nameparser major so far has removed API this package called.
+    "nameparser>=3.0.1,<4",
     "python-Levenshtein>=0.27.0",
     "regex>=2024.0.0",
     "typer>=0.20.0",
@@ -149,3 +149,5 @@ builtin = "clear,rare,en-GB_to_en-US"
 # 25,026 findings across this repo; seven were real, all in
 # pipeline/step4_search.py, and all are fixed rather than skipped.
 skip = "*.csv,*.parquet,*.joblib,./examples,./nltk_data,./docs,uv.lock"
+# Thi is a Vietnamese middle name used in tests/test_010_clean_names.py.
+ignore-words-list = "thi"
