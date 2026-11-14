@@ -179,9 +179,19 @@ class NameParser:
         already reads as the family name skips the model: one written with a
         comma after the family name, or one that opens with a surname particle.
 
+        Args:
+            names: Names to parse.
+
+        Returns:
+            One ParsedName per name, in input order.
+
         Raises:
-            Exception: Whatever the model raised, when parser_type is
-                "parsernaam". Under "auto" the names fall back to nameparser.
+            Exception: Whatever stopped the model, such as a failed import of
+                torch, when the parser was created with
+                parser_type="parsernaam". Any other parser logs the error and
+                returns the nameparser parse of every name.
+            ValueError: If parsernaam returns something other than one
+                prediction per name.
         """
         try:
             parsed_names = [self.parse_with_nameparser(name) for name in names]
