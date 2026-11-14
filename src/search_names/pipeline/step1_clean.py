@@ -19,7 +19,9 @@ OUTPUT_COLUMNS = (
 _ROMAN_NUMERALS = frozenset(
     {"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"}
 )
-_STANDARD_SUFFIX = re.compile(r"(JR|SR|PHD)[^.]", flags=re.IGNORECASE)
+_STANDARD_SUFFIX = re.compile(r"\b(JR|SR|PHD)\b(?!\.)", flags=re.IGNORECASE)
+_GENERATION_WORDS = frozenset({"JR", "SR"}) | _ROMAN_NUMERALS
+_COURTESY_TITLES = frozenset({"MR", "MS", "MRS"})
 
 
 def _strip_asides(raw_name: str) -> str:
@@ -28,27 +30,49 @@ def _strip_asides(raw_name: str) -> str:
     return re.sub(r"\s*['\"].*?['\"]\s*", " ", cleaned)
 
 
+def _bare(word: str) -> str:
+    return word.rstrip(".").upper()
+
+
 def _components(parsed: ParsedName, parser: NameParser) -> dict[str, str]:
-    if not parsed.last_name:
-        suffix_parts = (parsed.suffix or "").split(",")
-        if len(suffix_parts) >= 2:
-            parsed = parser.parse_with_nameparser(
-                f"{parsed.first_name or ''}, {suffix_parts[1]} {suffix_parts[0]}"
-            )
+    comma_parts = [part.strip() for part in (parsed.suffix or "").split(",")]
+    if len(comma_parts) >= 2 and not parsed.last_name:
+        parsed = parser.parse_with_nameparser(
+            f"{parsed.first_name or ''}, {comma_parts[1]} {comma_parts[0]}"
+        )
+    elif len(comma_parts) >= 2 and not parsed.first_name:
+        # "SMITH, JR., JOHN": the given name was read as a second suffix.
+        parsed = parser.parse_with_nameparser(
+            f"{parsed.last_name}, {' '.join(comma_parts[1:])}, {comma_parts[0]}"
+        )
 
     first_name = (parsed.first_name or "").casefold()
-    middle_name = (parsed.middle_name or "").casefold()
+    last_name = parsed.last_name or ""
     title = parsed.title or ""
+    middle_words = (parsed.middle_name or "").split()
+    suffix_text = parsed.suffix or ""
+
+    # A name that ends in "MR" or opens with "JR.," leaves that word where the
+    # family name belongs; the family name is then the last middle word.
+    if middle_words and _bare(last_name) in _COURTESY_TITLES:
+        title, last_name = last_name, middle_words.pop()
+    elif middle_words and _bare(last_name) in _GENERATION_WORDS:
+        suffix_text = ", ".join(part for part in (last_name, suffix_text) if part)
+        last_name = middle_words.pop()
+
     roman_numeral = ""
     suffix_parts = []
-    for suffix_part in (parsed.suffix or "").split(","):
-        normalized_suffix = suffix_part.strip()
-        if normalized_suffix.upper() in _ROMAN_NUMERALS:
-            roman_numeral = normalized_suffix
-        elif normalized_suffix:
-            suffix_parts.append(normalized_suffix)
+    for suffix_part in suffix_text.split(","):
+        kept_words = []
+        for word in suffix_part.split():
+            if word.upper() in _ROMAN_NUMERALS:
+                roman_numeral = word
+            else:
+                kept_words.append(word)
+        if kept_words:
+            suffix_parts.append(" ".join(kept_words))
 
-    middle_parts = middle_name.split()
+    middle_parts = [word.casefold() for word in middle_words]
     if middle_parts:
         trailing_middle = middle_parts[-1].rstrip(".")
         if len(middle_parts) > 1 and trailing_middle.upper() in _ROMAN_NUMERALS:
@@ -65,12 +89,12 @@ def _components(parsed: ParsedName, parser: NameParser) -> dict[str, str]:
     middle_name = " ".join(
         f"{part}." if len(part) == 1 else part for part in middle_parts
     )
-    suffix = _STANDARD_SUFFIX.sub(r"\1.", f"{', '.join(suffix_parts)} ").strip()
+    suffix = _STANDARD_SUFFIX.sub(r"\1.", ", ".join(suffix_parts))
 
     return {
         "FirstName": first_name.upper(),
         "MiddleInitial/Name": middle_name.upper(),
-        "LastName": parsed.last_name or "",
+        "LastName": last_name,
         "RomanNumeral": roman_numeral.upper(),
         "Title": title.upper(),
         "Suffix": suffix.upper(),

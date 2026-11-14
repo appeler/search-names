@@ -175,8 +175,13 @@ class NameParser:
 
         nameparser sets aside titles, suffixes, and nicknames. parsernaam sees
         the name words that remain and says whether they are written given
-        name first or family name first. A name written with a comma after the
-        family name already states its order and skips the model.
+        name first or family name first. A name whose first word nameparser
+        already reads as the family name skips the model: one written with a
+        comma after the family name, or one that opens with a surname particle.
+
+        Raises:
+            Exception: Whatever the model raised, when parser_type is
+                "parsernaam". Under "auto" the names fall back to nameparser.
         """
         try:
             parsed_names = [self.parse_with_nameparser(name) for name in names]
@@ -206,8 +211,11 @@ class NameParser:
             return parsed_names
 
         except Exception as error:
+            if self.parser_type == "parsernaam":
+                # The caller asked for the model by name; nameparser output
+                # under that label would be a silent substitution.
+                raise
             logger.error("Error parsing names with parsernaam: %s", error)
-            # Fall back to nameparser
             return [self.parse_with_nameparser(name) for name in names]
 
     @staticmethod

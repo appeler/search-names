@@ -120,10 +120,12 @@ clean_names(
 )
 ```
 
-On 3,000 members of the US Congress, `nameparser` recovers first and last name
-for 99% of names written given name first and none written family name first
-without a comma; `parsernaam` recovers 95% and 55%. Choose by how your list is
-written.
+We tested both on the names of 3,000 members of the US Congress, each
+rewritten in a given order, with the default `ml_threshold` of 0.8. `nameparser`
+recovers first and last name for 99% of names written given name first and, by
+construction, none written family name first without a comma. `parsernaam`
+recovers 95% and 55%. Choose by how your list is written. If `parsernaam` or
+torch cannot load, `parser_type="parsernaam"` raises instead of falling back.
 
 ## Parse names
 

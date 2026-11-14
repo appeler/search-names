@@ -250,6 +250,24 @@ class TestNameParser(unittest.TestCase):
         self.assertEqual((last.first_name, last.last_name), (None, "Smith"))
         self.assertEqual((first.title, last.title), ("Dr.", "Dr."))
 
+    @patch("search_names.enhanced_name_parser.parse_with_parsernaam_model")
+    def test_parsernaam_failure_raises_when_asked_for_by_name(self, mock_parse):
+        """Do not hand back nameparser output when the caller chose the model."""
+        mock_parse.side_effect = ImportError("torch is not installed")
+
+        with self.assertRaisesRegex(ImportError, "torch"):
+            NameParser(parser_type="parsernaam").parse("Nichols Richard")
+
+    @patch("search_names.enhanced_name_parser.parse_with_parsernaam_model")
+    def test_parsernaam_failure_falls_back_under_auto(self, mock_parse):
+        """Auto mode promises a parse, not a particular parser."""
+        mock_parse.side_effect = ImportError("torch is not installed")
+
+        result = NameParser(parser_type="auto").parse("Rajesh Kumar")
+
+        self.assertEqual(result.parser_used, "nameparser")
+        self.assertEqual((result.first_name, result.last_name), ("Rajesh", "Kumar"))
+
     def test_parsernaam_rejects_invalid_probability(self):
         """Reject malformed model probabilities before constructing results."""
         parser = NameParser(parser_type="parsernaam")

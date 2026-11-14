@@ -39,6 +39,13 @@
   name words. `Dr. Juan Q. Xavier de la Vega III` gave first name `III` and
   last name `Dr.`; it now gives `Juan`, `de la Vega`, title `Dr.`, and suffix
   `III`. `parsernaam` is given only the name words and decides their order.
+- `parser_type="parsernaam"` raises when the model cannot run. It used to log
+  the error and return `nameparser` output. `auto` still falls back.
+- `clean_names` places suffixes and titles it used to misplace:
+  `John Smith Jr III` gives suffix `JR.` and numeral `III` (was `JR.III` and no
+  numeral); `SMITH, JR., JOHN` gives first name `JOHN` (was empty);
+  `JOHN SMITH MR` gives last name `SMITH` (was `MR`); `JR., WILLIAM PASCRELL`
+  gives last name `PASCRELL` (was `JR.`).
 - A fresh install failed on import once `nameparser` 3.0 was released.
 
 ## [0.6.0] - 2026-08-18

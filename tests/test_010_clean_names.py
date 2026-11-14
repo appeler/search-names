@@ -102,3 +102,34 @@ def test_clean_names_rejects_an_unknown_parser(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="parser_type"):
         clean_names(input_file, tmp_path / "output.csv", parser_type="humanname")
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        # Two generation words with no comma between them.
+        ("John Smith Jr III", ("JOHN", "", "Smith", "III", "", "JR.")),
+        ("John Smith III, MD", ("JOHN", "", "Smith", "III", "", "MD")),
+        # The suffix written between the family and the given name.
+        ("SMITH, JR., JOHN", ("JOHN", "", "SMITH", "", "", "JR.")),
+        # A courtesy title or a generation word where the family name belongs.
+        ("JOHN SMITH MR", ("JOHN", "", "SMITH", "", "MR", "")),
+        ("JR., WILLIAM PASCRELL", ("WILLIAM", "", "PASCRELL", "", "", "JR.")),
+        ("John Smith PhD", ("JOHN", "", "Smith", "", "", "PHD.")),
+    ],
+)
+def test_clean_names_places_suffixes_and_titles(
+    tmp_path: Path, name: str, expected: tuple[str, ...]
+) -> None:
+    input_file = _write_names(tmp_path / "input.csv", [name])
+
+    (record,) = clean_names(input_file, tmp_path / "output.csv")
+
+    assert (
+        record["FirstName"],
+        record["MiddleInitial/Name"],
+        record["LastName"],
+        record["RomanNumeral"],
+        record["Title"],
+        record["Suffix"],
+    ) == expected
