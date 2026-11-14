@@ -59,8 +59,7 @@ def _components(parsed: ParsedName, parser: NameParser) -> dict[str, str]:
     elif (
         middle_words
         and _bare(last_name) in _GENERATION_WORDS
-        # "Vi" and a lone "X" are names; a generation word is dotted, or
-        # more than one capital.
+        # "Vi" is a name; a generation word is dotted, or several capitals.
         and (last_name.endswith(".") or (len(last_name) > 1 and last_name.isupper()))
     ):
         suffix_text = ", ".join(part for part in (last_name, suffix_text) if part)
