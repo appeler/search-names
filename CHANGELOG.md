@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-13
+
+### Changed
+
+- Requires Python 3.12 or later.
+
+### Fixed
+
+- Capped `nameparser` below 3.0. That release removed the `HumanName` class
+  the name parser is built on, so a fresh install of 0.6.0 failed on import.
+
 ## [0.6.0] - 2026-08-18
 
 ### Changed

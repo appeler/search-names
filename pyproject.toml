@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "search-names"
-version = "0.6.0"
+version = "0.7.0"
 description = "Prepare personal names and search CSV text corpora"
 authors = [
     {name = "Suriyan Laohaprapanon", email = "suriyant@gmail.com"},
