@@ -7,6 +7,7 @@ from rich import print as rprint
 from rich.console import Console
 from rich.progress import Progress
 
+from .enhanced_name_parser import ParserType
 from .logging_config import get_logger, setup_logging
 from .merge_results import merge_results as merge_results_func
 from .pipeline import augment_names, clean_names, preprocess_names, search_names
@@ -77,7 +78,7 @@ def clean_names_cmd(
     keep_duplicates: bool = typer.Option(
         False, "--keep-duplicates", "-a", help="Keep duplicate names (don't remove)"
     ),
-    parser_type: str = typer.Option(
+    parser_type: ParserType = typer.Option(
         "nameparser",
         "--parser",
         "-p",
@@ -400,7 +401,7 @@ def pipeline_cmd(
     skip_preprocess: bool = typer.Option(
         False, "--skip-preprocess", help="Skip preprocessing step"
     ),
-    parser_type: str = typer.Option(
+    parser_type: ParserType = typer.Option(
         "nameparser",
         "--parser",
         "-p",
