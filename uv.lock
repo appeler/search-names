@@ -2295,7 +2295,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "nameparser", specifier = ">=1.1.0" },
+    { name = "nameparser", specifier = ">=1.1.0,<3" },
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "pandas", specifier = ">=2.3.0" },
     { name = "parsernaam", specifier = ">=0.3.0" },

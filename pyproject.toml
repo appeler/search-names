@@ -25,7 +25,8 @@ classifiers = [
 ]
 keywords = ["search", "names", "text", "corpus", "pattern", "ner", "nlp", "entity-recognition", "entity-linking", "fuzzy-matching"]
 dependencies = [
-    "nameparser>=1.1.0",
+    # nameparser 3.0 replaced HumanName with parse() and renamed the name fields.
+    "nameparser>=1.1.0,<3",
     "python-Levenshtein>=0.27.0",
     "regex>=2024.0.0",
     "typer>=0.20.0",
