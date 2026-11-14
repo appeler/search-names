@@ -149,3 +149,5 @@ builtin = "clear,rare,en-GB_to_en-US"
 # 25,026 findings across this repo; seven were real, all in
 # pipeline/step4_search.py, and all are fixed rather than skipped.
 skip = "*.csv,*.parquet,*.joblib,./examples,./nltk_data,./docs,uv.lock"
+# Thi is a Vietnamese middle name used in tests/test_010_clean_names.py.
+ignore-words-list = "thi"
