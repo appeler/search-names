@@ -56,7 +56,13 @@ def _components(parsed: ParsedName, parser: NameParser) -> dict[str, str]:
     # family name belongs; the family name is then the last middle word.
     if middle_words and _bare(last_name) in _COURTESY_TITLES:
         title, last_name = last_name, middle_words.pop()
-    elif middle_words and _bare(last_name) in _GENERATION_WORDS:
+    elif (
+        middle_words
+        and _bare(last_name) in _GENERATION_WORDS
+        # "Vi" and a lone "X" are names; a generation word is dotted, or
+        # more than one capital.
+        and (last_name.endswith(".") or (len(last_name) > 1 and last_name.isupper()))
+    ):
         suffix_text = ", ".join(part for part in (last_name, suffix_text) if part)
         last_name = middle_words.pop()
 

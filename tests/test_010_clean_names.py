@@ -116,6 +116,10 @@ def test_clean_names_rejects_an_unknown_parser(tmp_path: Path) -> None:
         ("JOHN SMITH MR", ("JOHN", "", "SMITH", "", "MR", "")),
         ("JR., WILLIAM PASCRELL", ("WILLIAM", "", "PASCRELL", "", "", "JR.")),
         ("John Smith PhD", ("JOHN", "", "Smith", "", "", "PHD.")),
+        # A family name that spells a roman numeral stays a family name.
+        ("Nguyen Thi Vi", ("NGUYEN", "THI", "Vi", "", "", "")),
+        ("Tran Thi Tuong Vi", ("TRAN", "THI TUONG", "Vi", "", "", "")),
+        ("John Andrew X", ("JOHN", "ANDREW", "X", "", "", "")),
     ],
 )
 def test_clean_names_places_suffixes_and_titles(
