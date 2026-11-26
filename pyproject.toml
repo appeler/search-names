@@ -26,16 +26,16 @@ keywords = ["search", "names", "text", "corpus", "pattern", "ner", "nlp", "entit
 dependencies = [
     # Each nameparser major so far has removed API this package called.
     "nameparser>=3.0.1,<4",
-    "python-Levenshtein>=0.27.0",
-    "regex>=2024.0.0",
+    "python-Levenshtein>=0.27.1",
+    "regex>=2025.10.22",
     "typer>=0.20.0",
     "pydantic>=2.12.0",
     "rich>=14.0.0",
     "parsernaam>=0.3.0",
-    "numpy>=2.0.0",
-    "pandas>=2.3.0",
-    "spacy>=3.8.0",
-    "sentence-transformers>=5.0.0",
+    "numpy>=2.1.0",
+    "pandas>=3.0.0",
+    "spacy>=3.8.7",
+    "sentence-transformers>=5.2.0",
 ]
 
 [project.urls]
