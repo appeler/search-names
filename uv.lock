@@ -2103,13 +2103,13 @@ test = [
 requires-dist = [
     { name = "nameparser", specifier = ">=3.0.1,<4" },
     { name = "numpy", specifier = ">=2.1.0" },
-    { name = "pandas", specifier = ">=2.3.0" },
+    { name = "pandas", specifier = ">=3.0.0" },
     { name = "parsernaam", specifier = ">=0.3.0" },
     { name = "pydantic", specifier = ">=2.12.0" },
     { name = "python-levenshtein", specifier = ">=0.27.1" },
-    { name = "regex", specifier = ">=2024.9.11" },
+    { name = "regex", specifier = ">=2025.10.22" },
     { name = "rich", specifier = ">=14.0.0" },
-    { name = "sentence-transformers", specifier = ">=5.0.0" },
+    { name = "sentence-transformers", specifier = ">=5.2.0" },
     { name = "spacy", specifier = ">=3.8.7" },
     { name = "typer", specifier = ">=0.20.0" },
 ]
